@@ -814,3 +814,74 @@ def get_histogram(
             status_code=400,
             detail=f"Unable to generate histogram: {str(e)}"
         )
+
+@router.get("/{dataset_id}/bar-chart/{column_name}")
+def get_bar_chart(
+    dataset_id: str,
+    column_name: str,
+    db: Session = Depends(get_db)
+):
+
+    # Find dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    try:
+
+        # Read dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Check column
+        if column_name not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail="Column not found"
+            )
+
+        # Count category occurrences
+        category_counts = (
+            df[column_name]
+            .dropna()
+            .astype(str)
+            .value_counts()
+            .head(10)
+        )
+
+        # Prepare chart data
+        chart_data = [
+            {
+                "category": category,
+                "count": int(count)
+            }
+            for category, count in category_counts.items()
+        ]
+
+        return {
+            "dataset_id": dataset_id,
+            "column_name": column_name,
+            "chart_type": "bar",
+            "chart_data": chart_data,
+            "message": "Bar chart data generated successfully"
+        }
+
+    except Exception as e:
+
+        if isinstance(e, HTTPException):
+            raise e
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to generate bar chart: {str(e)}"
+        )
