@@ -965,3 +965,79 @@ def get_scatter_plot(
             status_code=400,
             detail=f"Unable to generate scatter plot: {str(e)}"
         )
+
+@router.get("/{dataset_id}/download")
+def download_dataset(
+    dataset_id: str,
+    file_format: str = "csv",
+    db: Session = Depends(get_db)
+):
+
+    # Find dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    # Validate requested format
+    if file_format not in ["csv", "xlsx"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Supported formats are csv and xlsx"
+        )
+
+    try:
+
+        # Read dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Prepare file in memory
+        output = BytesIO()
+
+        if file_format == "csv":
+
+            df.to_csv(output, index=False)
+
+            media_type = "text/csv"
+
+        else:
+
+            df.to_excel(output, index=False)
+
+            media_type = (
+                "application/vnd.openxmlformats-officedocument"
+                ".spreadsheetml.sheet"
+            )
+
+        output.seek(0)
+
+        # Generate download filename
+        filename = (
+            f"{Path(dataset.filename).stem}.{file_format}"
+        )
+
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type=media_type,
+            headers={
+                "Content-Disposition":
+                    f'attachment; filename="{filename}"'
+            }
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to download dataset: {str(e)}"
+        )
