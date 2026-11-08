@@ -10,7 +10,9 @@ from api_client import (
     clean_dataset,
     rename_columns,
     drop_columns,
-    convert_datatype
+    convert_datatype,
+    get_statistics,
+    get_correlation
 )
 
 # --------------------------------------------------
@@ -35,23 +37,7 @@ st.divider()
 
 
 # --------------------------------------------------
-# SIDEBAR NAVIGATION
-# --------------------------------------------------
-
-st.sidebar.title("Prep_AI")
-
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "Upload Dataset",
-        "Manage Datasets",
-        "Clean & Transform"
-    ]
-)
-
-
-# --------------------------------------------------
-# HELPER FUNCTION
+# HELPER FUNCTIONS
 # --------------------------------------------------
 
 def load_datasets():
@@ -68,7 +54,7 @@ def load_datasets():
     }
 
 
-def show_operation_result(result, operation):
+def show_operation_result(operation):
 
     st.success(f"{operation} completed successfully!")
 
@@ -79,6 +65,23 @@ def show_operation_result(result, operation):
 
 
 # --------------------------------------------------
+# SIDEBAR NAVIGATION
+# --------------------------------------------------
+
+st.sidebar.title("Prep_AI")
+
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "Upload Dataset",
+        "Manage Datasets",
+        "Clean & Transform",
+        "EDA Dashboard"
+    ]
+)
+
+
+# --------------------------------------------------
 # UPLOAD DATASET
 # --------------------------------------------------
 
@@ -86,10 +89,7 @@ if page == "Upload Dataset":
 
     st.header("📁 Upload Dataset")
 
-    st.write(
-        "Upload your CSV or Excel file to begin "
-        "your data preprocessing journey."
-    )
+    st.write("Upload a CSV or Excel file.")
 
     uploaded_file = st.file_uploader(
         "Choose a dataset",
@@ -118,7 +118,7 @@ if page == "Upload Dataset":
                 with col2:
                     st.metric("Total Columns", result["column_count"])
 
-                st.write("**Filename:**", result["filename"])
+                st.write("Filename:", result["filename"])
 
             except Exception as e:
 
@@ -139,7 +139,7 @@ elif page == "Manage Datasets":
 
         if not dataset_options:
 
-            st.info("No datasets uploaded yet. Please upload a dataset first.")
+            st.info("No datasets uploaded yet.")
 
         else:
 
@@ -208,12 +208,6 @@ elif page == "Clean & Transform":
             preview = get_preview(dataset_id)
             columns = preview["columns"]
 
-            st.divider()
-
-            # --------------------------------------
-            # TAB NAVIGATION
-            # --------------------------------------
-
             tab1, tab2, tab3, tab4 = st.tabs(
                 [
                     "Clean Data",
@@ -223,10 +217,7 @@ elif page == "Clean & Transform":
                 ]
             )
 
-            # --------------------------------------
-            # TAB 1: CLEAN DATA
-            # --------------------------------------
-
+            # Clean data
             with tab1:
 
                 st.subheader("Remove unwanted data")
@@ -243,7 +234,7 @@ elif page == "Clean & Transform":
 
                     if not remove_missing and not remove_duplicates:
 
-                        st.warning("Please select at least one cleaning operation.")
+                        st.warning("Select at least one operation.")
 
                     else:
 
@@ -255,22 +246,30 @@ elif page == "Clean & Transform":
                                 remove_duplicates
                             )
 
-                            show_operation_result(
-                                result,
-                                "Data cleaning"
-                            )
+                            show_operation_result("Data cleaning")
+
+                            col1, col2 = st.columns(2)
+
+                            with col1:
+                                st.metric(
+                                    "Rows Before",
+                                    preview["total_rows"]
+                                )
+
+                            with col2:
+                                st.metric(
+                                    "Columns",
+                                    preview["total_columns"]
+                                )
 
                         except Exception as e:
 
                             st.error(f"Cleaning failed: {e}")
 
-            # --------------------------------------
-            # TAB 2: RENAME COLUMNS
-            # --------------------------------------
-
+            # Rename columns
             with tab2:
 
-                st.subheader("Rename dataset columns")
+                st.subheader("Rename columns")
 
                 selected_column = st.selectbox(
                     "Select column",
@@ -286,11 +285,11 @@ elif page == "Clean & Transform":
 
                     if not new_column_name.strip():
 
-                        st.warning("Please enter a new column name.")
+                        st.warning("Enter a new column name.")
 
                     elif new_column_name in columns:
 
-                        st.warning("This column name already exists.")
+                        st.warning("Column name already exists.")
 
                     else:
 
@@ -301,19 +300,13 @@ elif page == "Clean & Transform":
                                 {selected_column: new_column_name.strip()}
                             )
 
-                            show_operation_result(
-                                result,
-                                "Column renaming"
-                            )
+                            show_operation_result("Column renaming")
 
                         except Exception as e:
 
                             st.error(f"Rename failed: {e}")
 
-            # --------------------------------------
-            # TAB 3: DROP COLUMNS
-            # --------------------------------------
-
+            # Drop columns
             with tab3:
 
                 st.subheader("Remove unnecessary columns")
@@ -327,7 +320,7 @@ elif page == "Clean & Transform":
 
                     if not columns_to_drop:
 
-                        st.warning("Please select columns to remove.")
+                        st.warning("Select at least one column.")
 
                     elif len(columns_to_drop) == len(columns):
 
@@ -358,28 +351,28 @@ elif page == "Clean & Transform":
                                     len(result["remaining_columns"])
                                 )
 
-                            st.write("**Removed Columns:**")
-                            st.write(", ".join(result["removed_columns"]))
+                            st.write(
+                                "Removed:",
+                                ", ".join(result["removed_columns"])
+                            )
 
-                            st.write("**Remaining Columns:**")
-                            st.write(", ".join(result["remaining_columns"]))
+                            st.write(
+                                "Remaining:",
+                                ", ".join(result["remaining_columns"])
+                            )
 
                             st.info(
-                                "A new processed dataset has been created. "
-                                "Your original dataset is unchanged."
+                                "Your original dataset remains unchanged."
                             )
 
                         except Exception as e:
 
-                            st.error(f"Drop columns failed: {e}")
+                            st.error(f"Drop failed: {e}")
 
-            # --------------------------------------
-            # TAB 4: CONVERT DATA TYPE
-            # --------------------------------------
-
+            # Convert datatype
             with tab4:
 
-                st.subheader("Convert column data types")
+                st.subheader("Convert column data type")
 
                 column_to_convert = st.selectbox(
                     "Select column",
@@ -402,18 +395,133 @@ elif page == "Clean & Transform":
                             new_type
                         )
 
-                        show_operation_result(
-                            result,
-                            "Data type conversion"
-                        )
+                        show_operation_result("Data type conversion")
 
                     except Exception as e:
 
                         st.error(f"Conversion failed: {e}")
 
+
+# --------------------------------------------------
+# EDA DASHBOARD
+# --------------------------------------------------
+
+elif page == "EDA Dashboard":
+
+    st.header("📈 Exploratory Data Analysis")
+
+    st.write(
+        "Explore descriptive statistics, missing values "
+        "and relationships between numerical variables."
+    )
+
+    try:
+
+        dataset_options = load_datasets()
+
+        if not dataset_options:
+
+            st.info("Please upload a dataset first.")
+
+        else:
+
+            selected_name = st.selectbox(
+                "Select dataset for analysis",
+                list(dataset_options.keys())
+            )
+
+            dataset_id = dataset_options[selected_name]
+
+            # Dataset information
+            preview = get_preview(dataset_id)
+            info = get_dataset_info(dataset_id)
+
+            st.divider()
+
+            # Overview
+            st.subheader("Dataset Overview")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.metric("Total Rows", preview["total_rows"])
+
+            with col2:
+                st.metric("Total Columns", preview["total_columns"])
+
+            # Descriptive statistics
+            st.divider()
+
+            st.subheader("1. Descriptive Statistics")
+
+            statistics = get_statistics(dataset_id)
+
+            if statistics:
+
+                stats_df = pd.DataFrame(statistics)
+
+                st.dataframe(
+                    stats_df,
+                    use_container_width=True
+                )
+
+            else:
+
+                st.info("No numerical columns available for statistics.")
+
+            # Missing value analysis
+            st.divider()
+
+            st.subheader("2. Missing Value Analysis")
+
+            if "missing_values" in info:
+
+                missing_df = pd.DataFrame(
+                    list(info["missing_values"].items()),
+                    columns=["Column", "Missing Values"]
+                )
+
+                st.dataframe(
+                    missing_df,
+                    use_container_width=True
+                )
+
+                total_missing = missing_df["Missing Values"].sum()
+
+                st.metric("Total Missing Values", int(total_missing))
+
+            else:
+
+                st.info("Missing value information is unavailable.")
+
+            # Correlation analysis
+            st.divider()
+
+            st.subheader("3. Correlation Analysis")
+
+            correlation = get_correlation(dataset_id)
+
+            if correlation:
+
+                correlation_df = pd.DataFrame(correlation)
+
+                st.dataframe(
+                    correlation_df.style.background_gradient(
+                        cmap="coolwarm",
+                        axis=None
+                    ).format("{:.2f}"),
+                    use_container_width=True
+                )
+
+            else:
+
+                st.info(
+                    "Not enough numerical columns for correlation analysis."
+                )
+
     except Exception as e:
 
-        st.error(f"Unable to load cleaning tools: {e}")
+        st.error(f"EDA analysis failed: {e}")
 
 
 # --------------------------------------------------
@@ -422,4 +530,6 @@ elif page == "Clean & Transform":
 
 st.divider()
 
-st.caption("Prep_AI | Data Preprocessing & Visualization Platform")
+st.caption(
+    "Prep_AI | Data Preprocessing & Visualization Platform"
+)
