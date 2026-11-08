@@ -885,3 +885,83 @@ def get_bar_chart(
             status_code=400,
             detail=f"Unable to generate bar chart: {str(e)}"
         )
+
+@router.get("/{dataset_id}/scatter-plot")
+def get_scatter_plot(
+    dataset_id: str,
+    x_column: str,
+    y_column: str,
+    db: Session = Depends(get_db)
+):
+
+    # Find dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    try:
+
+        # Read dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Check columns
+        if x_column not in df.columns or y_column not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail="One or both columns not found"
+            )
+
+        # Check numerical data
+        if not pd.api.types.is_numeric_dtype(df[x_column]):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{x_column} must be numerical"
+            )
+
+        if not pd.api.types.is_numeric_dtype(df[y_column]):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{y_column} must be numerical"
+            )
+
+        # Remove rows with missing values in selected columns
+        plot_df = df[[x_column, y_column]].dropna()
+
+        # Prepare scatter plot data
+        points = [
+            {
+                "x": float(row[x_column]),
+                "y": float(row[y_column])
+            }
+            for _, row in plot_df.iterrows()
+        ]
+
+        return {
+            "dataset_id": dataset_id,
+            "chart_type": "scatter",
+            "x_column": x_column,
+            "y_column": y_column,
+            "points": points,
+            "message": "Scatter plot data generated successfully"
+        }
+
+    except Exception as e:
+
+        if isinstance(e, HTTPException):
+            raise e
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to generate scatter plot: {str(e)}"
+        )
