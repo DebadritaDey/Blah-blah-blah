@@ -170,3 +170,42 @@ def download_dataset(dataset_id, file_format="csv"):
 
     response.raise_for_status()
     return response.content
+
+
+
+# HISTOGRAM
+
+st.divider()
+st.subheader("📊 Histogram")
+
+if columns:
+    histogram_column = st.selectbox(
+        "Select a column for Histogram",
+        columns,
+        key="histogram_column"
+    )
+
+    if st.button("Generate Histogram"):
+
+        try:
+            histogram = get_histogram(
+                dataset_id,
+                histogram_column
+            )
+
+            histogram_df = pd.DataFrame(histogram["histogram"])
+
+            fig = px.bar(
+                histogram_df,
+                x=histogram_df.columns[0],
+                y=histogram_df.columns[1],
+                title=f"Distribution of {histogram_column}"
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+        except Exception as e:
+            st.error(f"Histogram failed: {e}")
