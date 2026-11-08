@@ -260,3 +260,65 @@ if numeric_columns:
 
 else:
     st.info("No numerical columns found in this dataset.")
+
+
+
+
+# BAR CHART
+
+st.divider()
+st.subheader("📊 Bar Chart")
+
+try:
+    preview_data = get_preview(dataset_id)
+
+    data = preview_data.get(
+        "preview",
+        preview_data.get("data", [])
+    )
+
+    dataset_df = pd.DataFrame(data)
+
+    if not dataset_df.empty:
+
+        categorical_columns = dataset_df.select_dtypes(
+            include=["object", "category"]
+        ).columns.tolist()
+
+        if categorical_columns:
+
+            bar_column = st.selectbox(
+                "Select a categorical column",
+                categorical_columns,
+                key="bar_column"
+            )
+
+            if st.button("Generate Bar Chart"):
+
+                counts = (
+                    dataset_df[bar_column]
+                    .value_counts()
+                    .reset_index()
+                )
+
+                counts.columns = [bar_column, "Count"]
+
+                fig = px.bar(
+                    counts,
+                    x=bar_column,
+                    y="Count",
+                    title=f"Count of {bar_column}",
+                    text="Count"
+                )
+
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True
+                )
+
+        else:
+            st.info("No categorical columns found.")
+
+except Exception as e:
+    st.error(f"Could not generate bar chart: {e}")
+
