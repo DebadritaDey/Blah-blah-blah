@@ -3,8 +3,8 @@ import streamlit as st
 import pandas as pd
 
 from api_client import (
-    upload_dataset,
     get_datasets,
+    upload_dataset,
     get_preview,
     get_dataset_info,
     clean_dataset,
@@ -26,14 +26,7 @@ st.set_page_config(
 )
 
 st.title("📊 Prep_AI")
-st.subheader("Data Preprocessing and Visualization Platform")
-
-st.write(
-    "Upload, clean, transform, analyze and visualize "
-    "your datasets in one place."
-)
-
-st.divider()
+st.caption("Data Preprocessing and Exploratory Data Analysis")
 
 
 # --------------------------------------------------
@@ -41,34 +34,34 @@ st.divider()
 # --------------------------------------------------
 
 def load_datasets():
+    try:
+        return get_datasets()
+    except Exception as e:
+        st.error(f"Could not load datasets: {e}")
+        return []
 
-    datasets = get_datasets()
 
+def select_dataset(datasets):
     if not datasets:
-        return {}
+        st.warning("Please upload a dataset first.")
+        return None
 
-    return {
-        f'{item["filename"]} ({item["dataset_id"][:8]})':
-        item["dataset_id"]
-        for item in datasets
-    }
-
-
-def show_operation_result(operation):
-
-    st.success(f"{operation} completed successfully!")
-
-    st.info(
-        "A new processed dataset has been created. "
-        "Your original dataset remains unchanged."
+    selected = st.selectbox(
+        "Select Dataset",
+        datasets,
+        format_func=lambda x: x["filename"]
     )
 
+    return selected
+
+
+def show_result(result):
+    st.success(result.get("message", "Operation completed successfully!"))
+
 
 # --------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # --------------------------------------------------
-
-st.sidebar.title("Prep_AI")
 
 page = st.sidebar.radio(
     "Navigation",
@@ -82,328 +75,269 @@ page = st.sidebar.radio(
 
 
 # --------------------------------------------------
-# UPLOAD DATASET
+# PAGE 1: UPLOAD DATASET
 # --------------------------------------------------
 
 if page == "Upload Dataset":
 
-    st.header("📁 Upload Dataset")
-
-    st.write("Upload a CSV or Excel file.")
+    st.header("Upload Dataset")
 
     uploaded_file = st.file_uploader(
-        "Choose a dataset",
-        type=["csv", "xlsx"]
+        "Choose a CSV or Excel file",
+        type=["csv", "xlsx", "xls"]
     )
 
-    if uploaded_file is not None:
+    if st.button("Upload Dataset"):
 
-        st.write("Selected file:", uploaded_file.name)
+        if uploaded_file is None:
+            st.warning("Please select a file first.")
 
-        if st.button("Upload Dataset", type="primary"):
-
+        else:
             try:
-
-                with st.spinner("Uploading dataset..."):
-
-                    result = upload_dataset(uploaded_file)
+                result = upload_dataset(uploaded_file)
 
                 st.success("Dataset uploaded successfully!")
 
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.metric("Total Rows", result["row_count"])
-
-                with col2:
-                    st.metric("Total Columns", result["column_count"])
-
-                st.write("Filename:", result["filename"])
+                st.write("**Filename:**", result["filename"])
+                st.write("**Rows:**", result["row_count"])
+                st.write("**Columns:**", result["column_count"])
 
             except Exception as e:
-
                 st.error(f"Upload failed: {e}")
 
 
 # --------------------------------------------------
-# MANAGE DATASETS
+# PAGE 2: MANAGE DATASETS
 # --------------------------------------------------
 
 elif page == "Manage Datasets":
 
-    st.header("📚 Manage Datasets")
+    st.header("Manage Datasets")
 
-    try:
+    datasets = load_datasets()
+    selected = select_dataset(datasets)
 
-        dataset_options = load_datasets()
+    if selected:
 
-        if not dataset_options:
+        dataset_id = selected["dataset_id"]
 
-            st.info("No datasets uploaded yet.")
+        st.subheader("Dataset Overview")
 
-        else:
+        col1, col2 = st.columns(2)
 
-            selected_name = st.selectbox(
-                "Select a dataset",
-                list(dataset_options.keys())
-            )
+        col1.metric("Rows", selected["row_count"])
+        col2.metric("Columns", selected["column_count"])
 
-            dataset_id = dataset_options[selected_name]
+        if st.button("Preview Dataset"):
 
-            preview = get_preview(dataset_id)
+            try:
+                preview = get_preview(dataset_id)
 
-            st.subheader("Dataset Preview")
+                st.subheader("Dataset Preview")
 
-            st.dataframe(
-                pd.DataFrame(preview["preview"]),
-                use_container_width=True
-            )
+                data = preview.get(
+                    "preview",
+                    preview.get("data", [])
+                )
 
-            col1, col2 = st.columns(2)
+                st.dataframe(
+                    pd.DataFrame(data),
+                    use_container_width=True
+                )
 
-            with col1:
-                st.metric("Total Rows", preview["total_rows"])
+            except Exception as e:
+                st.error(f"Preview failed: {e}")
 
-            with col2:
-                st.metric("Total Columns", preview["total_columns"])
+        if st.button("View Dataset Information"):
 
-            st.divider()
+            try:
+                info = get_dataset_info(dataset_id)
 
-            st.subheader("Dataset Information")
+                st.subheader("Dataset Information")
+                st.json(info)
 
-            info = get_dataset_info(dataset_id)
-
-            st.json(info)
-
-    except Exception as e:
-
-        st.error(f"Unable to fetch datasets: {e}")
+            except Exception as e:
+                st.error(f"Could not load information: {e}")
 
 
 # --------------------------------------------------
-# CLEAN AND TRANSFORM
+# PAGE 3: CLEAN AND TRANSFORM
 # --------------------------------------------------
 
 elif page == "Clean & Transform":
 
-    st.header("🧹 Clean & Transform Dataset")
+    st.header("Clean & Transform Dataset")
 
-    try:
+    datasets = load_datasets()
+    selected = select_dataset(datasets)
 
-        dataset_options = load_datasets()
+    if selected:
 
-        if not dataset_options:
+        dataset_id = selected["dataset_id"]
 
-            st.info("Please upload a dataset first.")
-
-        else:
-
-            selected_name = st.selectbox(
-                "Choose a dataset",
-                list(dataset_options.keys())
-            )
-
-            dataset_id = dataset_options[selected_name]
-
+        try:
             preview = get_preview(dataset_id)
-            columns = preview["columns"]
+            columns = preview.get("columns", [])
 
-            tab1, tab2, tab3, tab4 = st.tabs(
-                [
-                    "Clean Data",
-                    "Rename Columns",
-                    "Drop Columns",
-                    "Convert Data Type"
-                ]
-            )
+            if not columns:
+                data = preview.get("preview", preview.get("data", []))
+                if data:
+                    columns = list(data[0].keys())
 
-            # Clean data
-            with tab1:
+        except Exception as e:
+            st.error(f"Could not load columns: {e}")
+            columns = []
 
-                st.subheader("Remove unwanted data")
+        operation = st.selectbox(
+            "Choose an Operation",
+            [
+                "Remove Missing Values",
+                "Remove Duplicates",
+                "Rename Columns",
+                "Drop Columns",
+                "Convert Data Type"
+            ]
+        )
 
-                remove_missing = st.checkbox(
-                    "Remove rows containing missing values"
-                )
+        st.divider()
 
-                remove_duplicates = st.checkbox(
-                    "Remove duplicate rows"
-                )
+        # REMOVE MISSING VALUES
 
-                if st.button("Clean Dataset", type="primary"):
+        if operation == "Remove Missing Values":
 
-                    if not remove_missing and not remove_duplicates:
+            st.write("Remove rows containing missing values.")
 
-                        st.warning("Select at least one operation.")
+            if st.button("Remove Missing Rows"):
 
-                    else:
+                try:
+                    result = clean_dataset(
+                        dataset_id,
+                        True,
+                        False
+                    )
+                    show_result(result)
 
-                        try:
+                except Exception as e:
+                    st.error(f"Operation failed: {e}")
 
-                            result = clean_dataset(
-                                dataset_id,
-                                remove_missing,
-                                remove_duplicates
-                            )
+        # REMOVE DUPLICATES
 
-                            show_operation_result("Data cleaning")
+        elif operation == "Remove Duplicates":
 
-                            col1, col2 = st.columns(2)
+            st.write("Remove duplicate rows from the dataset.")
 
-                            with col1:
-                                st.metric(
-                                    "Rows Before",
-                                    preview["total_rows"]
-                                )
+            if st.button("Remove Duplicate Rows"):
 
-                            with col2:
-                                st.metric(
-                                    "Columns",
-                                    preview["total_columns"]
-                                )
+                try:
+                    result = clean_dataset(
+                        dataset_id,
+                        False,
+                        True
+                    )
+                    show_result(result)
 
-                        except Exception as e:
+                except Exception as e:
+                    st.error(f"Operation failed: {e}")
 
-                            st.error(f"Cleaning failed: {e}")
+        # RENAME COLUMNS
 
-            # Rename columns
-            with tab2:
+        elif operation == "Rename Columns":
 
-                st.subheader("Rename columns")
+            if columns:
 
-                selected_column = st.selectbox(
-                    "Select column",
-                    columns,
-                    key="rename_column"
-                )
-
-                new_column_name = st.text_input(
-                    "Enter new column name"
-                )
-
-                if st.button("Rename Column", type="primary"):
-
-                    if not new_column_name.strip():
-
-                        st.warning("Enter a new column name.")
-
-                    elif new_column_name in columns:
-
-                        st.warning("Column name already exists.")
-
-                    else:
-
-                        try:
-
-                            result = rename_columns(
-                                dataset_id,
-                                {selected_column: new_column_name.strip()}
-                            )
-
-                            show_operation_result("Column renaming")
-
-                        except Exception as e:
-
-                            st.error(f"Rename failed: {e}")
-
-            # Drop columns
-            with tab3:
-
-                st.subheader("Remove unnecessary columns")
-
-                columns_to_drop = st.multiselect(
-                    "Select columns to remove",
+                old_name = st.selectbox(
+                    "Select Column",
                     columns
                 )
 
-                if st.button("Drop Selected Columns", type="primary"):
+                new_name = st.text_input(
+                    "Enter New Column Name"
+                )
 
-                    if not columns_to_drop:
+                if st.button("Rename Column"):
 
-                        st.warning("Select at least one column.")
-
-                    elif len(columns_to_drop) == len(columns):
-
-                        st.warning("You cannot remove all columns.")
+                    if not new_name.strip():
+                        st.warning("Enter a new column name.")
 
                     else:
-
                         try:
-
-                            result = drop_columns(
+                            result = rename_columns(
                                 dataset_id,
-                                columns_to_drop
+                                {old_name: new_name}
                             )
-
-                            st.success("Columns removed successfully!")
-
-                            col1, col2 = st.columns(2)
-
-                            with col1:
-                                st.metric(
-                                    "Columns Removed",
-                                    len(result["removed_columns"])
-                                )
-
-                            with col2:
-                                st.metric(
-                                    "Columns Remaining",
-                                    len(result["remaining_columns"])
-                                )
-
-                            st.write(
-                                "Removed:",
-                                ", ".join(result["removed_columns"])
-                            )
-
-                            st.write(
-                                "Remaining:",
-                                ", ".join(result["remaining_columns"])
-                            )
-
-                            st.info(
-                                "Your original dataset remains unchanged."
-                            )
+                            show_result(result)
 
                         except Exception as e:
+                            st.error(f"Rename failed: {e}")
 
+            else:
+                st.info("No columns available.")
+
+        # DROP COLUMNS
+
+        elif operation == "Drop Columns":
+
+            if columns:
+
+                selected_columns = st.multiselect(
+                    "Select Columns to Drop",
+                    columns
+                )
+
+                if st.button("Drop Selected Columns"):
+
+                    if not selected_columns:
+                        st.warning("Select at least one column.")
+
+                    else:
+                        try:
+                            result = drop_columns(
+                                dataset_id,
+                                selected_columns
+                            )
+                            show_result(result)
+
+                        except Exception as e:
                             st.error(f"Drop failed: {e}")
 
-            # Convert datatype
-            with tab4:
+            else:
+                st.info("No columns available.")
 
-                st.subheader("Convert column data type")
+        # CONVERT DATA TYPE
 
-                column_to_convert = st.selectbox(
-                    "Select column",
-                    columns,
-                    key="convert_column"
+        elif operation == "Convert Data Type":
+
+            if columns:
+
+                column_name = st.selectbox(
+                    "Select Column",
+                    columns
                 )
 
                 new_type = st.selectbox(
-                    "Select new data type",
+                    "Choose New Data Type",
                     ["int", "float", "str"]
                 )
 
-                if st.button("Convert Data Type", type="primary"):
+                if st.button("Convert Data Type"):
 
                     try:
-
                         result = convert_datatype(
                             dataset_id,
-                            column_to_convert,
+                            column_name,
                             new_type
                         )
-
-                        show_operation_result("Data type conversion")
+                        show_result(result)
 
                     except Exception as e:
-
                         st.error(f"Conversion failed: {e}")
+
+            else:
+                st.info("No columns available.")
 
 
 # --------------------------------------------------
-# EDA DASHBOARD
+# PAGE 4: EDA DASHBOARD
 # --------------------------------------------------
 
 elif page == "EDA Dashboard":
@@ -411,125 +345,49 @@ elif page == "EDA Dashboard":
     st.header("📈 Exploratory Data Analysis")
 
     st.write(
-        "Explore descriptive statistics, missing values "
-        "and relationships between numerical variables."
+        "Explore descriptive statistics and relationships "
+        "between numerical variables."
     )
 
-    try:
+    datasets = load_datasets()
+    selected = select_dataset(datasets)
 
-        dataset_options = load_datasets()
+    if selected:
 
-        if not dataset_options:
+        dataset_id = selected["dataset_id"]
 
-            st.info("Please upload a dataset first.")
+        # DESCRIPTIVE STATISTICS
 
-        else:
+        st.subheader("Descriptive Statistics")
 
-            selected_name = st.selectbox(
-                "Select dataset for analysis",
-                list(dataset_options.keys())
-            )
+        if st.button("Generate Statistics"):
 
-            dataset_id = dataset_options[selected_name]
+            try:
+                statistics = get_statistics(dataset_id)
+                st.write(statistics)
 
-            # Dataset information
-            preview = get_preview(dataset_id)
-            info = get_dataset_info(dataset_id)
+            except Exception as e:
+                st.error(f"Could not generate statistics: {e}")
 
-            st.divider()
+        st.divider()
 
-            # Overview
-            st.subheader("Dataset Overview")
+        # CORRELATION MATRIX
 
-            col1, col2 = st.columns(2)
+        st.subheader("Correlation Analysis")
 
-            with col1:
-                st.metric("Total Rows", preview["total_rows"])
+        if st.button("Generate Correlation Matrix"):
 
-            with col2:
-                st.metric("Total Columns", preview["total_columns"])
+            try:
+                correlation = get_correlation(dataset_id)
+                st.write(correlation)
 
-            # Descriptive statistics
-            st.divider()
-
-            st.subheader("1. Descriptive Statistics")
-
-            statistics = get_statistics(dataset_id)
-
-            if statistics:
-
-                stats_df = pd.DataFrame(statistics)
-
-                st.dataframe(
-                    stats_df,
-                    use_container_width=True
-                )
-
-            else:
-
-                st.info("No numerical columns available for statistics.")
-
-            # Missing value analysis
-            st.divider()
-
-            st.subheader("2. Missing Value Analysis")
-
-            if "missing_values" in info:
-
-                missing_df = pd.DataFrame(
-                    list(info["missing_values"].items()),
-                    columns=["Column", "Missing Values"]
-                )
-
-                st.dataframe(
-                    missing_df,
-                    use_container_width=True
-                )
-
-                total_missing = missing_df["Missing Values"].sum()
-
-                st.metric("Total Missing Values", int(total_missing))
-
-            else:
-
-                st.info("Missing value information is unavailable.")
-
-            # Correlation analysis
-            st.divider()
-
-            st.subheader("3. Correlation Analysis")
-
-            correlation = get_correlation(dataset_id)
-
-            if correlation:
-
-                correlation_df = pd.DataFrame(correlation)
-
-                st.dataframe(
-                    correlation_df.style.background_gradient(
-                        cmap="coolwarm",
-                        axis=None
-                    ).format("{:.2f}"),
-                    use_container_width=True
-                )
-
-            else:
-
-                st.info(
-                    "Not enough numerical columns for correlation analysis."
-                )
-
-    except Exception as e:
-
-        st.error(f"EDA analysis failed: {e}")
+            except Exception as e:
+                st.error(f"Could not generate correlation: {e}")
 
 
 # --------------------------------------------------
 # FOOTER
 # --------------------------------------------------
 
-st.divider()
-
-st.caption(
-    "Prep_AI | Data Preprocessing & Visualization Platform"
-)
+st.sidebar.divider()
+st.sidebar.caption("Prep_AI | Data Analysis Platform")
