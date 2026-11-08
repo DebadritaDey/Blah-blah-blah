@@ -416,4 +416,107 @@ def rename_columns(
         raise HTTPException(
             status_code=400,
             detail=f"Error renaming columns: {str(e)}"
-        )                
+        )  
+
+@router.post("/{dataset_id}/drop-columns")
+def drop_columns(
+    dataset_id: str,
+    request: DropColumnsRequest,
+    db: Session = Depends(get_db)
+):
+
+    # Find the dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    new_file_path = None
+
+    try:
+
+        # Read the dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Check whether columns exist
+        missing_columns = [
+            column for column in request.columns
+            if column not in df.columns
+        ]
+
+        if missing_columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Columns not found: {missing_columns}"
+            )
+
+        # Check that at least one column remains
+        if len(request.columns) >= len(df.columns):
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot remove all columns from the dataset."
+            )
+
+        # Drop selected columns
+        df = df.drop(columns=request.columns)
+
+        # Generate new dataset ID
+        new_dataset_id = str(uuid.uuid4())
+
+        new_filename = f"modified_{dataset.filename}"
+
+        new_file_path = (
+            PROCESSED_DIR /
+            f"{new_dataset_id}{extension}"
+        )
+
+        # Save modified dataset
+        if extension == ".csv":
+            df.to_csv(new_file_path, index=False)
+        else:
+            df.to_excel(new_file_path, index=False)
+
+        # Save dataset information
+        new_dataset = Dataset(
+            dataset_id=new_dataset_id,
+            filename=new_filename,
+            file_path=str(new_file_path),
+            row_count=len(df),
+            column_count=len(df.columns)
+        )
+
+        db.add(new_dataset)
+        db.commit()
+
+        return {
+            "original_dataset_id": dataset_id,
+            "new_dataset_id": new_dataset_id,
+            "removed_columns": request.columns,
+            "remaining_columns": list(df.columns),
+            "message": "Columns removed successfully"
+        }
+
+    except Exception as e:
+
+        db.rollback()
+
+        if new_file_path and new_file_path.exists():
+            new_file_path.unlink()
+
+        if isinstance(e, HTTPException):
+            raise e
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error removing columns: {str(e)}"
+        )
