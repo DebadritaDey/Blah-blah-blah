@@ -686,3 +686,58 @@ def get_dataset_statistics(
             status_code=400,
             detail=f"Unable to calculate statistics: {str(e)}"
         )
+
+@router.get("/{dataset_id}/correlation")
+def get_dataset_correlation(
+    dataset_id: str,
+    db: Session = Depends(get_db)
+):
+
+    # Find dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    try:
+
+        # Read dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Select numerical columns
+        numeric_df = df.select_dtypes(include="number")
+
+        if len(numeric_df.columns) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least two numerical columns are required"
+            )
+
+        # Calculate correlation
+        correlation = numeric_df.corr()
+
+        return {
+            "dataset_id": dataset_id,
+            "filename": dataset.filename,
+            "correlation": correlation.to_dict()
+        }
+
+    except Exception as e:
+
+        if isinstance(e, HTTPException):
+            raise e
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to calculate correlation: {str(e)}"
+        )
