@@ -398,3 +398,50 @@ try:
 except Exception as e:
     st.error(f"Could not generate scatter plot: {e}")
 
+
+# DOWNLOAD DATASET
+
+elif page == "Download Dataset":
+
+    st.header("📥 Download Dataset")
+
+    datasets = load_datasets()
+    selected = select_dataset(datasets)
+
+    if selected:
+
+        dataset_id = selected["dataset_id"]
+
+        st.write("Selected file:", selected["filename"])
+
+        file_format = st.selectbox(
+            "Choose Download Format",
+            ["csv", "xlsx"]
+        )
+
+        if st.button("Download Dataset"):
+
+            try:
+                file_content = download_dataset(
+                    dataset_id,
+                    file_format
+                )
+
+                filename = (
+                    selected["filename"].rsplit(".", 1)[0]
+                    + "." + file_format
+                )
+
+                st.download_button(
+                    label="Click Here to Save File",
+                    data=file_content,
+                    file_name=filename,
+                    mime=(
+                        "text/csv"
+                        if file_format == "csv"
+                        else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                )
+
+            except Exception as e:
+                st.error(f"Download failed: {e}")
