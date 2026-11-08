@@ -1,4 +1,13 @@
+CSS_PATH = Path(__file__).resolve().parent / "assets" / "style.css"
 
+if CSS_PATH.exists():
+    with open(CSS_PATH, "r", encoding="utf-8") as file:
+        st.markdown(
+            f"<style>{file.read()}</style>",
+            unsafe_allow_html=True
+        )
+else:
+    st.warning(f"CSS file not found: {CSS_PATH}")
 /* Main application */
 .stApp {
     background-color: #f5f7fb;
