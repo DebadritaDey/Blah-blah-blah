@@ -49,3 +49,11 @@ section[data-testid="stSidebar"] {
 hr {
     border-color: #dbe2ea;
 }
+
+
+# Load custom CSS
+with open("assets/style.css", "r") as file:
+    st.markdown(
+        f"<style>{file.read()}</style>",
+        unsafe_allow_html=True
+    )
