@@ -322,3 +322,79 @@ try:
 except Exception as e:
     st.error(f"Could not generate bar chart: {e}")
 
+
+
+
+
+
+# SCATTER PLOT
+
+st.divider()
+st.subheader("🔵 Scatter Plot")
+
+try:
+    preview_data = get_preview(dataset_id)
+
+    data = preview_data.get(
+        "preview",
+        preview_data.get("data", [])
+    )
+
+    dataset_df = pd.DataFrame(data)
+
+    numeric_columns = dataset_df.select_dtypes(
+        include="number"
+    ).columns.tolist()
+
+    if len(numeric_columns) >= 2:
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            x_column = st.selectbox(
+                "Select X-axis",
+                numeric_columns,
+                key="scatter_x"
+            )
+
+        with col2:
+            y_options = [
+                col for col in numeric_columns
+                if col != x_column
+            ]
+
+            y_column = st.selectbox(
+                "Select Y-axis",
+                y_options,
+                key="scatter_y"
+            )
+
+        if st.button("Generate Scatter Plot"):
+
+            fig = px.scatter(
+                dataset_df,
+                x=x_column,
+                y=y_column,
+                title=f"{y_column} vs {x_column}",
+                color_discrete_sequence=["#636EFA"]
+            )
+
+            fig.update_layout(
+                xaxis_title=x_column,
+                yaxis_title=y_column
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+    else:
+        st.info(
+            "At least two numerical columns are required "
+            "for a scatter plot."
+        )
+
+except Exception as e:
+    st.error(f"Could not generate scatter plot: {e}")
+
