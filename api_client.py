@@ -209,3 +209,54 @@ if columns:
 
         except Exception as e:
             st.error(f"Histogram failed: {e}")
+
+
+# HISTOGRAM
+
+st.divider()
+st.subheader("📊 Histogram")
+
+numeric_columns = []
+
+try:
+    preview_data = get_preview(dataset_id)
+    data = preview_data.get(
+        "preview",
+        preview_data.get("data", [])
+    )
+
+    if data:
+        dataset_df = pd.DataFrame(data)
+
+        numeric_columns = dataset_df.select_dtypes(
+            include="number"
+        ).columns.tolist()
+
+except Exception as e:
+    st.error(f"Could not load numerical columns: {e}")
+
+
+if numeric_columns:
+
+    histogram_column = st.selectbox(
+        "Select a numerical column",
+        numeric_columns,
+        key="histogram_column"
+    )
+
+    if st.button("Generate Histogram"):
+
+        try:
+            histogram = get_histogram(
+                dataset_id,
+                histogram_column
+            )
+
+            st.write("Histogram API Response:")
+            st.json(histogram)
+
+        except Exception as e:
+            st.error(f"Histogram failed: {e}")
+
+else:
+    st.info("No numerical columns found in this dataset.")
