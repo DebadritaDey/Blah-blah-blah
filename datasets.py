@@ -520,3 +520,117 @@ def drop_columns(
             status_code=400,
             detail=f"Error removing columns: {str(e)}"
         )
+
+@router.post("/{dataset_id}/convert-datatype")
+def convert_datatype(
+    dataset_id: str,
+    request: ConvertDataTypeRequest,
+    db: Session = Depends(get_db)
+):
+
+    # Find the dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    new_file_path = None
+
+    try:
+
+        # Read the dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Check if column exists
+        if request.column_name not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail="Column not found"
+            )
+
+        # Convert data type
+        if request.new_type == "int":
+            df[request.column_name] = pd.to_numeric(
+                df[request.column_name],
+                errors="raise"
+            ).astype("int64")
+
+        elif request.new_type == "float":
+            df[request.column_name] = pd.to_numeric(
+                df[request.column_name],
+                errors="raise"
+            ).astype(float)
+
+        elif request.new_type == "str":
+            df[request.column_name] = df[
+                request.column_name
+            ].astype(str)
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Supported types are int, float and str"
+            )
+
+        # Generate new dataset ID
+        new_dataset_id = str(uuid.uuid4())
+
+        new_filename = f"converted_{dataset.filename}"
+
+        new_file_path = (
+            PROCESSED_DIR /
+            f"{new_dataset_id}{extension}"
+        )
+
+        # Save converted dataset
+        if extension == ".csv":
+            df.to_csv(new_file_path, index=False)
+        else:
+            df.to_excel(new_file_path, index=False)
+
+        # Save dataset information
+        new_dataset = Dataset(
+            dataset_id=new_dataset_id,
+            filename=new_filename,
+            file_path=str(new_file_path),
+            row_count=len(df),
+            column_count=len(df.columns)
+        )
+
+        db.add(new_dataset)
+        db.commit()
+
+        return {
+            "original_dataset_id": dataset_id,
+            "new_dataset_id": new_dataset_id,
+            "column_name": request.column_name,
+            "new_data_type": request.new_type,
+            "message": "Data type converted successfully"
+        }
+
+    except Exception as e:
+
+        db.rollback()
+
+        if new_file_path and new_file_path.exists():
+            new_file_path.unlink()
+
+        if isinstance(e, HTTPException):
+            raise e
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error converting data type: {str(e)}"
+        )
+
+
