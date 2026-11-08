@@ -741,3 +741,76 @@ def get_dataset_correlation(
             status_code=400,
             detail=f"Unable to calculate correlation: {str(e)}"
         )
+
+@router.get("/{dataset_id}/histogram/{column_name}")
+def get_histogram(
+    dataset_id: str,
+    column_name: str,
+    db: Session = Depends(get_db)
+):
+
+    # Find dataset
+    dataset = db.query(Dataset).filter(
+        Dataset.dataset_id == dataset_id
+    ).first()
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    try:
+
+        # Read dataset
+        extension = Path(dataset.file_path).suffix.lower()
+
+        if extension == ".csv":
+            df = pd.read_csv(dataset.file_path)
+        else:
+            df = pd.read_excel(dataset.file_path)
+
+        # Check column
+        if column_name not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail="Column not found"
+            )
+
+        if not pd.api.types.is_numeric_dtype(df[column_name]):
+            raise HTTPException(
+                status_code=400,
+                detail="Histogram requires a numerical column"
+            )
+
+        # Generate histogram data
+        counts, bin_edges = pd.cut(
+            df[column_name].dropna(),
+            bins=5,
+            retbins=True
+        )
+
+        histogram = counts.value_counts().sort_index()
+
+        return {
+            "dataset_id": dataset_id,
+            "column_name": column_name,
+            "bins": [
+                {
+                    "range": str(interval),
+                    "count": int(count)
+                }
+                for interval, count in histogram.items()
+            ],
+            "message": "Histogram data generated successfully"
+        }
+
+    except Exception as e:
+
+        if isinstance(e, HTTPException):
+            raise e
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to generate histogram: {str(e)}"
+        )
