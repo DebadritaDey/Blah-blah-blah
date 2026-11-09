@@ -34,3 +34,13 @@ def health_check():
     return {
         "status": "healthy"
     }
+
+Users often need to switch between different tools and platforms to inspect datasets, clean missing values, transform columns, create visualizations, and export processed data. This makes the workflow less convenient and time-consuming.
+
+2. Manual Effort
+
+Common data preparation tasks, such as handling missing values, removing duplicate records, renaming columns, and changing data types, often require repetitive manual work. Performing these operations individually can increase effort and the chances of errors.
+
+3. Limited Visibility
+
+When data preparation activities are performed across different tools, it becomes difficult to maintain a clear view of the original dataset and its processed versions. Users need an organized way to inspect changes and track their outputs.
