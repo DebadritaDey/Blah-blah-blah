@@ -1,0 +1,152 @@
+
+
+/* =================================
+   Prep_AI - Modern Dashboard Theme
+================================= */
+
+/* Main background */
+.stApp {
+    background-color: #f4f7fc;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Main content spacing */
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1200px;
+}
+
+/* Headings */
+h1 {
+    color: #172554;
+    font-weight: 750;
+}
+
+h2, h3 {
+    color: #1e3a5f;
+    font-weight: 650;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #e8effa;
+    border-right: 1px solid #d8e2f0;
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2 {
+    color: #172554;
+}
+
+/* Buttons */
+.stButton > button {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 20px;
+    font-weight: 600;
+    transition: 0.2s ease;
+}
+
+.stButton > button:hover {
+    background-color: #1d4ed8;
+    color: white;
+    border: none;
+}
+
+/* Download buttons */
+.stDownloadButton > button {
+    background-color: #0f766e;
+    color: white;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+}
+
+.stDownloadButton > button:hover {
+    background-color: #115e59;
+    color: white;
+}
+
+/* Metric cards */
+[data-testid="stMetric"] {
+    background-color: white;
+    padding: 18px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #64748b;
+    font-weight: 600;
+}
+
+[data-testid="stMetricValue"] {
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
+/* Input fields */
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea {
+    background-color: white;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+}
+
+/* Dropdowns */
+.stSelectbox > div > div {
+    background-color: white;
+    border-radius: 8px;
+}
+
+/* File uploader */
+[data-testid="stFileUploader"] {
+    background-color: white;
+    border: 1px dashed #93add4;
+    border-radius: 12px;
+    padding: 15px;
+}
+
+/* Data tables */
+[data-testid="stDataFrame"] {
+    background-color: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+    background-color: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Alerts and messages */
+[data-testid="stAlert"] {
+    border-radius: 10px;
+}
+
+/* Dividers */
+hr {
+    border-color: #dbe4f0;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab"] {
+    font-weight: 600;
+    color: #475569;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #2563eb;
+}
+
+/* Footer spacing */
+footer {
+    visibility: hidden;
+}
