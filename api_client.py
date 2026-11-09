@@ -445,3 +445,16 @@ elif page == "Download Dataset":
 
             except Exception as e:
                 st.error(f"Download failed: {e}")
+with col1:
+            st.metric("Total Rows", info.get("row_count", 0))
+
+        with col2:
+            st.metric("Total Columns", info.get("column_count", 0))
+
+        with col3:
+            st.metric(
+                "Missing Values",
+                sum(info.get("missing_values", {}).values())
+            )
+
+        st.write("**Dataset ID:**", info.get("dataset_id", dataset_id))
